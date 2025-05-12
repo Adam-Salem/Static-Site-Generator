@@ -2,6 +2,7 @@ import unittest
 
 from textnode import TextNode, TextType
 from node_methods import *
+from markdown_methods import *
 
 
 class TestTextNode(unittest.TestCase):
@@ -64,11 +65,12 @@ class TestTextNode(unittest.TestCase):
         self.assertEqual(html_node.value, "")
         
     def test_split_nodes(self):
-        node = TextNode("This is text with a `code block` word", TextType.TEXT)
+        node = TextNode("This is text with a `code block` word or `two`", TextType.TEXT)
         new_nodes = split_nodes_delimiter([node], "`", TextType.CODE)
         self.assertEqual(new_nodes, [TextNode("This is text with a ", TextType.TEXT, None), 
                                      TextNode("code block", TextType.CODE, None), 
-                                     TextNode(" word", TextType.TEXT, None)])
+                                     TextNode(" word or ", TextType.TEXT, None),
+                                     TextNode("two", TextType.CODE)])
 
     def test_split_multiple_nodes(self):
         node = TextNode("This is text with a `code block` word", TextType.TEXT)
@@ -111,5 +113,90 @@ class TestTextNode(unittest.TestCase):
                                      TextNode("bold", TextType.BOLD, None), 
                                      TextNode(" word", TextType.TEXT, None)])
 
+    def test_extract_markdown_images(self):
+        matches = extract_markdown_images(
+            "This is text with an ![image](https://i.imgur.com/zjjcJKZ.png)"
+        )
+        self.assertListEqual([("image", "https://i.imgur.com/zjjcJKZ.png")], matches)
+        
+    def test_extract_markdown_multiple_images(self):
+        matches = extract_markdown_images(
+            "This is text with an ![image](https://i.imgur.com/zjjcJKZ.png) or two ![image2](test.com)"
+        )
+        self.assertListEqual([("image", "https://i.imgur.com/zjjcJKZ.png"), ("image2", "test.com")], matches)
+
+    def test_extract_markdown_links(self):
+        matches = extract_markdown_links(
+            "This is text with a [link](https://i.imgur.com/zjjcJKZ.png)"
+        )
+        self.assertListEqual([("link", "https://i.imgur.com/zjjcJKZ.png")], matches)
+        
+    def test_extract_markdown_multiple_links(self):
+        matches = extract_markdown_links(
+            "This is text with a [link](https://i.imgur.com/zjjcJKZ.png) or two [link2](hehe.haha)"
+        )
+        self.assertListEqual([("link", "https://i.imgur.com/zjjcJKZ.png"), ("link2", "hehe.haha")], matches)
+
+    def test_split_images(self):
+        node = TextNode("This is text with an ![image](https://i.imgur.com/zjjcJKZ.png) and another ![second image](https://i.imgur.com/3elNhQu.png)",
+                        TextType.TEXT)
+        new_nodes = split_nodes_image([node])
+        self.assertListEqual([TextNode("This is text with an ", TextType.TEXT),
+                              TextNode("image", TextType.IMAGE, "https://i.imgur.com/zjjcJKZ.png"),
+                              TextNode(" and another ", TextType.TEXT),
+                              TextNode("second image", TextType.IMAGE, "https://i.imgur.com/3elNhQu.png")],
+                             new_nodes)
+        
+    def test_split_links(self):
+        node = TextNode("This is text with a [link](https://i.imgur.com/zjjcJKZ.png) and another [second link](https://i.imgur.com/3elNhQu.png)",
+                        TextType.TEXT)
+        new_nodes = split_nodes_link([node])
+        self.assertListEqual([TextNode("This is text with a ", TextType.TEXT),
+                              TextNode("link", TextType.LINK, "https://i.imgur.com/zjjcJKZ.png"),
+                              TextNode(" and another ", TextType.TEXT),
+                              TextNode("second link", TextType.LINK, "https://i.imgur.com/3elNhQu.png")],
+                             new_nodes)
+        
+    def test_text_to_textnode(self):
+        text = "This is **text** with an _italic_ word and a `code block` and an ![obi wan image](https://i.imgur.com/fJRm4Vk.jpeg) and a [link](https://boot.dev)"
+        self.assertListEqual([TextNode("This is ", TextType.TEXT),
+                              TextNode("text", TextType.BOLD),
+                              TextNode(" with an ", TextType.TEXT),
+                              TextNode("italic", TextType.ITALIC),
+                              TextNode(" word and a ", TextType.TEXT),
+                              TextNode("code block", TextType.CODE),
+                              TextNode(" and an ", TextType.TEXT),
+                              TextNode("obi wan image", TextType.IMAGE, "https://i.imgur.com/fJRm4Vk.jpeg"),
+                              TextNode(" and a ", TextType.TEXT),
+                              TextNode("link", TextType.LINK, "https://boot.dev")],
+                             text_to_textnodes(text))
+        
+    def test_text_to_textnode2(self):
+        text = "This is **text** with a `code block` and a `code block`"
+        self.assertListEqual([TextNode("This is ", TextType.TEXT),
+                              TextNode("text", TextType.BOLD),
+                              TextNode(" with a ", TextType.TEXT),
+                              TextNode("code block", TextType.CODE),
+                              TextNode(" and a ", TextType.TEXT),
+                              TextNode("code block", TextType.CODE)],
+                             text_to_textnodes(text))
+
+    def test_text_to_textnode3(self):
+        text = "This is **text** with a `code block` and a `code block` and a `code block` and a `code block` and a `code block`"
+        self.assertListEqual([TextNode("This is ", TextType.TEXT),
+                              TextNode("text", TextType.BOLD),
+                              TextNode(" with a ", TextType.TEXT),
+                              TextNode("code block", TextType.CODE),
+                              TextNode(" and a ", TextType.TEXT),
+                              TextNode("code block", TextType.CODE),
+                              TextNode(" and a ", TextType.TEXT),
+                              TextNode("code block", TextType.CODE),
+                              TextNode(" and a ", TextType.TEXT),
+                              TextNode("code block", TextType.CODE),
+                              TextNode(" and a ", TextType.TEXT),
+                              TextNode("code block", TextType.CODE)],
+                             text_to_textnodes(text))
+        
+    
 if __name__ == "__main__":
     unittest.main()
